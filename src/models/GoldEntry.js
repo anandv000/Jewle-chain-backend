@@ -31,4 +31,4 @@ const goldEntrySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model("GoldEntry", goldEntrySchema);
+module.exports = mongoose.model("GoldEntry", goldEntrySchema); 
