@@ -86,4 +86,3 @@ if (!process.env.VERCEL) {
     console.log(`📦 ${process.env.NODE_ENV || "development"}\n`);
   });
 }
-}
