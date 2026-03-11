@@ -57,9 +57,15 @@ app.use((_req, res) => res.status(404).json({ success: false, error: "Route not 
 // Error handler
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`\n✦  AtelierGold API v3`);
-  console.log(`🚀 http://localhost:${PORT}`);
-  console.log(`📦 ${process.env.NODE_ENV || "development"}\n`);
-});
+// Export for Vercel serverless
+module.exports = app;
+
+// Local development server
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`\n✦  AtelierGold API v3`);
+    console.log(`🚀 http://localhost:${PORT}`);
+    console.log(`📦 ${process.env.NODE_ENV || "development"}\n`);
+  });
+}
