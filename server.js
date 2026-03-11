@@ -45,9 +45,15 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 if (process.env.NODE_ENV !== "production") app.use(morgan("dev"));
 
-// Static uploads
-app.use("/uploads",          express.static(path.join(__dirname, "src/uploads")));
-app.use("/uploads/receipts", express.static(path.join(__dirname, "src/uploads/receipts")));
+if (process.env.NODE_ENV !== 'production') {
+  // Local environment: serve from src/uploads
+  app.use("/uploads",          express.static(path.join(__dirname, "src/uploads")));
+  app.use("/uploads/receipts", express.static(path.join(__dirname, "src/uploads/receipts")));
+} else {
+  // Vercel: serve from /tmp/uploads
+  app.use("/uploads",          express.static(path.join('/tmp', "uploads")));
+  app.use("/uploads/receipts", express.static(path.join('/tmp', "uploads/receipts")));
+}
 
 // Routes
 app.use("/api/auth",         authRoutes);

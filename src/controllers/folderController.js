@@ -29,7 +29,10 @@ const deleteFolder = async (req, res, next) => {
 
     folder.items.forEach(item => {
       if (item.image) {
-        const fp = path.join(__dirname, "../uploads", path.basename(item.image));
+        const uploadsDir = process.env.NODE_ENV === 'production'
+          ? path.join('/tmp', 'uploads')
+          : path.join(__dirname, "../uploads");
+        const fp = path.join(uploadsDir, path.basename(item.image));
         if (fs.existsSync(fp)) fs.unlinkSync(fp);
       }
     });
@@ -86,7 +89,10 @@ const removeItem = async (req, res, next) => {
     if (!item) return res.status(404).json({ success: false, error: "Item not found" });
 
     if (item.image) {
-      const fp = path.join(__dirname, "../uploads", path.basename(item.image));
+      const uploadsDir = process.env.NODE_ENV === 'production'
+        ? path.join('/tmp', 'uploads')
+        : path.join(__dirname, "../uploads");
+      const fp = path.join(uploadsDir, path.basename(item.image));
       if (fs.existsSync(fp)) fs.unlinkSync(fp);
     }
 

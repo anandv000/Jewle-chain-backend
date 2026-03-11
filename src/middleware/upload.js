@@ -2,8 +2,15 @@ const multer = require("multer");
 const path   = require("path");
 const fs     = require("fs");
 
-const UPLOAD_DIR = path.join(__dirname, "../uploads");
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// On Vercel, use /tmp (read-write). Locally, use src/uploads
+const UPLOAD_DIR = process.env.NODE_ENV === 'production' 
+  ? path.join('/tmp', 'uploads')
+  : path.join(__dirname, "../uploads");
+
+// Only try to create directory on local environment (Vercel /tmp is pre-created)
+if (process.env.NODE_ENV !== 'production' && !fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),

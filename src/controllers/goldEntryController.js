@@ -79,7 +79,9 @@ const createEntry = async (req, res, next) => {
     const newGoldTotal = await syncCustomerGold(customerId);
 
     // Generate PDF
-    const uploadsDir = path.join(__dirname, "../uploads/receipts");
+    const uploadsDir = process.env.NODE_ENV === 'production'
+      ? path.join('/tmp', 'uploads/receipts')
+      : path.join(__dirname, "../uploads/receipts");
     if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
     const pdfPath  = path.join(uploadsDir, `${receiptNo.replace(/\//g, "-")}.pdf`);
     const logoPath = process.env.LOGO_PATH || path.join(__dirname, "../../logo.png");
