@@ -13,21 +13,30 @@ const diamondShapeRoutes  = require("./src/routes/diamondShapeRoutes");
 const goldEntryRoutes     = require("./src/routes/goldEntryRoutes");
 const errorHandler        = require("./src/middleware/errorHandler");
 
-// ── Connect DB then drop any stale indexes ────────────────────────────────────
-connectDB().then(async () => {
-  try {
-    const mongoose = require("mongoose");
-    const userColl = mongoose.connection.collection("users");
-    const indexes  = await userColl.indexes();
-    for (const idx of indexes) {
-      // Drop the old unique "username_1" index that blocks second user registration
-      if (idx.key && idx.key.username !== undefined) {
-        await userColl.dropIndex(idx.name);
-        console.log(`🧹 Dropped stale index "${idx.name}" from users collection`);
-      }
+// ── Initialize DB connection (don't block app startup) ────────────────────────
+connectDB()
+  .then(async (conn) => {
+    if (!conn) {
+      console.warn("⚠️  Continuing without database...");
+      return;
     }
-  } catch (_) { /* silent on first run — collection may not exist yet */ }
-}).catch(() => {});
+    try {
+      const mongoose = require("mongoose");
+      const userColl = mongoose.connection.collection("users");
+      const indexes  = await userColl.getIndexes();
+      for (const [indexName, indexDetails] of Object.entries(indexes)) {
+        if (indexDetails.key && indexDetails.key.username === 1) {
+          await userColl.dropIndex(indexName);
+          console.log(`🧹 Dropped stale index "${indexName}" from users collection`);
+        }
+      }
+    } catch (err) { 
+      console.warn(`⚠️  Could not clean indexes: ${err.message}`);
+    }
+  })
+  .catch((err) => {
+    console.error(`❌ DB cleanup failed: ${err.message}`);
+  });
 
 const app = express();
 
@@ -48,8 +57,16 @@ app.use("/api/orders",       orderRoutes);
 app.use("/api/diamonds",     diamondShapeRoutes);
 app.use("/api/gold-entries", goldEntryRoutes);
 
-// Health
-app.get("/api/health", (_req, res) => res.json({ success: true, message: "AtelierGold API ✦" }));
+// Health check
+app.get("/api/health", (_req, res) => {
+  const mongoose = require("mongoose");
+  const dbConnected = mongoose.connection.readyState === 1;
+  res.json({ 
+    success: true, 
+    message: "AtelierGold API ✦",
+    database: dbConnected ? "connected" : "disconnected"
+  });
+});
 
 // 404
 app.use((_req, res) => res.status(404).json({ success: false, error: "Route not found" }));
@@ -68,4 +85,5 @@ if (!process.env.VERCEL) {
     console.log(`🚀 http://localhost:${PORT}`);
     console.log(`📦 ${process.env.NODE_ENV || "development"}\n`);
   });
+}
 }
