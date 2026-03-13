@@ -2,16 +2,15 @@ require("dotenv").config();
 const express = require("express");
 const cors    = require("cors");
 const morgan  = require("morgan");
-const path    = require("path");
 
-const connectDB           = require("./src/config/db");
-const authRoutes          = require("./src/routes/authRoutes");
-const customerRoutes      = require("./src/routes/customerRoutes");
-const folderRoutes        = require("./src/routes/folderRoutes");
-const orderRoutes         = require("./src/routes/orderRoutes");
-const diamondShapeRoutes  = require("./src/routes/diamondShapeRoutes");
-const goldEntryRoutes     = require("./src/routes/goldEntryRoutes");
-const errorHandler        = require("./src/middleware/errorHandler");
+const connectDB          = require("./src/config/db");
+const authRoutes         = require("./src/routes/authRoutes");
+const customerRoutes     = require("./src/routes/customerRoutes");
+const folderRoutes       = require("./src/routes/folderRoutes");
+const orderRoutes        = require("./src/routes/orderRoutes");
+const diamondShapeRoutes = require("./src/routes/diamondShapeRoutes");
+const goldEntryRoutes    = require("./src/routes/goldEntryRoutes");
+const errorHandler       = require("./src/middleware/errorHandler");
 
 // ── Initialize DB connection (don't block app startup) ────────────────────────
 connectDB()
@@ -30,7 +29,7 @@ connectDB()
           console.log(`🧹 Dropped stale index "${indexName}" from users collection`);
         }
       }
-    } catch (err) { 
+    } catch (err) {
       console.warn(`⚠️  Could not clean indexes: ${err.message}`);
     }
   })
@@ -40,22 +39,35 @@ connectDB()
 
 const app = express();
 
-app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:3000", credentials: true }));
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
+// ── CORS — allow your Vercel frontend + localhost ─────────────────────────────
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  "http://localhost:3000",
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, cb) => {
+    // Allow requests with no origin (Postman, mobile apps, server-to-server)
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    cb(new Error(`CORS blocked: ${origin}`));
+  },
+  credentials: true,
+}));
+
+// ── Body parsers — 15 MB limit to handle base64 images ───────────────────────
+// Images are stored as base64 strings in MongoDB (no file system writes)
+// so the JSON payload can be larger than the default 10mb
+app.use(express.json({ limit: "15mb" }));
+app.use(express.urlencoded({ extended: true, limit: "15mb" }));
+
 if (process.env.NODE_ENV !== "production") app.use(morgan("dev"));
 
-if (process.env.NODE_ENV !== 'production') {
-  // Local environment: serve from src/uploads
-  app.use("/uploads",          express.static(path.join(__dirname, "src/uploads")));
-  app.use("/uploads/receipts", express.static(path.join(__dirname, "src/uploads/receipts")));
-} else {
-  // Vercel: serve from /tmp/uploads
-  app.use("/uploads",          express.static(path.join('/tmp', "uploads")));
-  app.use("/uploads/receipts", express.static(path.join('/tmp', "uploads/receipts")));
-}
+// ── NO static /uploads needed ─────────────────────────────────────────────────
+// Images are base64 data URLs stored directly in MongoDB.
+// Vercel filesystem is read-only so we never write files to disk.
 
-// Routes
+// ── Routes ────────────────────────────────────────────────────────────────────
 app.use("/api/auth",         authRoutes);
 app.use("/api/customers",    customerRoutes);
 app.use("/api/folders",      folderRoutes);
@@ -63,14 +75,14 @@ app.use("/api/orders",       orderRoutes);
 app.use("/api/diamonds",     diamondShapeRoutes);
 app.use("/api/gold-entries", goldEntryRoutes);
 
-// Health check
+// Health check — shows DB status
 app.get("/api/health", (_req, res) => {
-  const mongoose = require("mongoose");
+  const mongoose   = require("mongoose");
   const dbConnected = mongoose.connection.readyState === 1;
-  res.json({ 
-    success: true, 
+  res.json({
+    success: true,
     message: "AtelierGold API ✦",
-    database: dbConnected ? "connected" : "disconnected"
+    database: dbConnected ? "connected" : "disconnected",
   });
 });
 
@@ -80,10 +92,10 @@ app.use((_req, res) => res.status(404).json({ success: false, error: "Route not 
 // Error handler
 app.use(errorHandler);
 
-// Export for Vercel serverless
+// ── Export for Vercel serverless ──────────────────────────────────────────────
 module.exports = app;
 
-// Local development server
+// ── Local development server ──────────────────────────────────────────────────
 if (!process.env.VERCEL) {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => {

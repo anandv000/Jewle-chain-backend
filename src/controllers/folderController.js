@@ -1,5 +1,3 @@
-const path    = require("path");
-const fs      = require("fs");
 const Folder  = require("../models/Folder");
 const Counter = require("../models/Counter");
 
@@ -26,17 +24,7 @@ const deleteFolder = async (req, res, next) => {
   try {
     const folder = await Folder.findByIdAndDelete(req.params.id);
     if (!folder) return res.status(404).json({ success: false, error: "Folder not found" });
-
-    folder.items.forEach(item => {
-      if (item.image) {
-        const uploadsDir = process.env.NODE_ENV === 'production'
-          ? path.join('/tmp', 'uploads')
-          : path.join(__dirname, "../uploads");
-        const fp = path.join(uploadsDir, path.basename(item.image));
-        if (fs.existsSync(fp)) fs.unlinkSync(fp);
-      }
-    });
-
+    // No file system cleanup needed — images stored as base64 in MongoDB
     res.status(200).json({ success: true, message: "Folder deleted" });
   } catch (err) { next(err); }
 };
@@ -54,22 +42,24 @@ const addItem = async (req, res, next) => {
     const isDupe = folder.items.some(it => it.name.toLowerCase() === name.trim().toLowerCase());
     if (isDupe) return res.status(400).json({ success: false, error: `"${name}" already exists in this folder.` });
 
-    // ── Auto item number: a101, a102 … ──────────────────────────────────────
+    // Auto item number: a101, a102 …
     const seq        = await Counter.getNext("itemNumber");
-    const itemNumber = `a${100 + seq}`; // seq=1→a101, seq=2→a102 …
+    const itemNumber = `a${100 + seq}`;
 
-    // ── Image URL ─────────────────────────────────────────────────────────────
+    // ── Image: convert buffer → base64 data URL (stored in MongoDB) ──────────
+    // Works on Vercel / any read-only host — no disk writes at all
     let imageUrl = null;
-    if (req.file) {
-      imageUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+    if (req.file && req.file.buffer) {
+      const base64 = req.file.buffer.toString("base64");
+      imageUrl = `data:${req.file.mimetype};base64,${base64}`;
     }
 
     folder.items.push({
       itemNumber,
-      name:   name.trim(),
-      weight: parseFloat(weight) || 0,
-      desc:   desc || "",
-      image:  imageUrl,
+      name:    name.trim(),
+      weight:  parseFloat(weight) || 0,
+      desc:    desc || "",
+      image:   imageUrl,
       addedAt: new Date(),
     });
     await folder.save();
@@ -88,14 +78,7 @@ const removeItem = async (req, res, next) => {
     const item = folder.items.id(req.params.itemId);
     if (!item) return res.status(404).json({ success: false, error: "Item not found" });
 
-    if (item.image) {
-      const uploadsDir = process.env.NODE_ENV === 'production'
-        ? path.join('/tmp', 'uploads')
-        : path.join(__dirname, "../uploads");
-      const fp = path.join(uploadsDir, path.basename(item.image));
-      if (fs.existsSync(fp)) fs.unlinkSync(fp);
-    }
-
+    // No file system cleanup needed — image was base64 in MongoDB
     item.deleteOne();
     await folder.save();
 

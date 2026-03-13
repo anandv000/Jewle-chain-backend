@@ -1,9 +1,6 @@
-const path                    = require("path");
-const fs                      = require("fs");
 const GoldEntry               = require("../models/GoldEntry");
 const Customer                = require("../models/Customer");
 const Counter                 = require("../models/Counter");
-const { generateReceipt }     = require("../services/receiptService");
 const { sendReceiptWhatsApp } = require("../services/whatsappService");
 
 // ── Fiscal year ───────────────────────────────────────────────────────────────
@@ -57,11 +54,12 @@ const createEntry = async (req, res, next) => {
     const receiptNo = `PRG/${fy}/${String(seq).padStart(4, "0")}`;
 
     // Totals
-    const rows       = (items || []).map((it, i) => ({ ...it, sr: i + 1 }));
+    const rows        = (items || []).map((it, i) => ({ ...it, sr: i + 1 }));
     const totalWeight = parseFloat(rows.reduce((s, r) => s + (parseFloat(r.weight) || 0), 0).toFixed(3));
     const totalPureWt = parseFloat(rows.reduce((s, r) => s + (parseFloat(r.pureWt)  || 0), 0).toFixed(3));
 
-    // Save entry
+    // Save entry — NO PDF generation (Vercel = read-only filesystem)
+    // Receipt is generated client-side in the browser (same as BagWorkflow PDF)
     const entry = await GoldEntry.create({
       receiptNo,
       customer:       customerId,
@@ -75,53 +73,42 @@ const createEntry = async (req, res, next) => {
       totalPureWt,
     });
 
-    // ── Sync customer gold total ──────────────────────────────────────────────
+    // Sync customer gold total
     const newGoldTotal = await syncCustomerGold(customerId);
 
-    // Generate PDF
-    const uploadsDir = process.env.NODE_ENV === 'production'
-      ? path.join('/tmp', 'uploads/receipts')
-      : path.join(__dirname, "../uploads/receipts");
-    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-    const pdfPath  = path.join(uploadsDir, `${receiptNo.replace(/\//g, "-")}.pdf`);
-    const logoPath = process.env.LOGO_PATH || path.join(__dirname, "../../logo.png");
-
-    try {
-      await generateReceipt(entry, pdfPath, logoPath);
-      entry.pdfPath = pdfPath;
-      await entry.save();
-    } catch (pdfErr) { console.warn("PDF failed:", pdfErr.message); }
-
-    // WhatsApp
+    // WhatsApp (optional — only if configured)
     let whatsappResult = { sent: false };
     if (sendWhatsapp) {
-      whatsappResult = await sendReceiptWhatsApp(entry);
-      if (whatsappResult.sent) { entry.whatsappSent = true; await entry.save(); }
+      try {
+        whatsappResult = await sendReceiptWhatsApp(entry);
+        if (whatsappResult.sent) {
+          entry.whatsappSent = true;
+          await entry.save();
+        }
+      } catch (waErr) {
+        console.warn("WhatsApp send failed:", waErr.message);
+        whatsappResult = { sent: false, reason: waErr.message };
+      }
     }
 
-    const pdfUrl = entry.pdfPath
-      ? `${req.protocol}://${req.get("host")}/uploads/receipts/${path.basename(entry.pdfPath)}`
-      : null;
-
     res.status(201).json({
-      success:       true,
-      data:          { ...entry.toObject(), pdfUrl },
-      whatsapp:      whatsappResult,
-      newGoldTotal,           // ← frontend uses this to update customer card instantly
+      success:      true,
+      data:         entry.toObject(),
+      whatsapp:     whatsappResult,
+      newGoldTotal, // frontend updates customer card instantly
     });
   } catch (err) { next(err); }
 };
 
 // ── GET /api/gold-entries/:id/pdf ─────────────────────────────────────────────
+// PDF is now generated client-side — this endpoint returns the entry data only
+// Kept for backward compatibility but no longer streams a file
 const downloadPdf = async (req, res, next) => {
   try {
     const entry = await GoldEntry.findById(req.params.id);
-    if (!entry || !entry.pdfPath || !fs.existsSync(entry.pdfPath)) {
-      return res.status(404).json({ success: false, error: "PDF not found" });
-    }
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${path.basename(entry.pdfPath)}"`);
-    fs.createReadStream(entry.pdfPath).pipe(res);
+    if (!entry) return res.status(404).json({ success: false, error: "Entry not found" });
+    // Return entry data so client can build the receipt
+    res.status(200).json({ success: true, data: entry });
   } catch (err) { next(err); }
 };
 
@@ -130,8 +117,7 @@ const deleteEntry = async (req, res, next) => {
   try {
     const entry = await GoldEntry.findByIdAndDelete(req.params.id);
     if (!entry) return res.status(404).json({ success: false, error: "Entry not found" });
-    if (entry.pdfPath && fs.existsSync(entry.pdfPath)) fs.unlinkSync(entry.pdfPath);
-    // Re-sync gold total after delete
+    // No file cleanup needed — no PDFs stored on disk
     await syncCustomerGold(entry.customer);
     res.status(200).json({ success: true, message: "Entry deleted" });
   } catch (err) { next(err); }
