@@ -3,14 +3,15 @@ const express = require("express");
 const cors    = require("cors");
 const morgan  = require("morgan");
 
-const connectDB          = require("./src/config/db");
-const authRoutes         = require("./src/routes/authRoutes");
-const customerRoutes     = require("./src/routes/customerRoutes");
-const folderRoutes       = require("./src/routes/folderRoutes");
-const orderRoutes        = require("./src/routes/orderRoutes");
-const diamondShapeRoutes = require("./src/routes/diamondShapeRoutes");
-const goldEntryRoutes    = require("./src/routes/goldEntryRoutes");
-const errorHandler       = require("./src/middleware/errorHandler");
+const connectDB                = require("./src/config/db");
+const authRoutes               = require("./src/routes/authRoutes");
+const customerRoutes           = require("./src/routes/customerRoutes");
+const folderRoutes             = require("./src/routes/folderRoutes");
+const orderRoutes              = require("./src/routes/orderRoutes");
+const diamondShapeRoutes       = require("./src/routes/diamondShapeRoutes");
+const diamondFolderRoutes      = require("./src/routes/diamondFolderRoutes");
+const goldEntryRoutes          = require("./src/routes/goldEntryRoutes");
+const errorHandler             = require("./src/middleware/errorHandler");
 
 // ── Initialize DB connection (don't block app startup) ────────────────────────
 connectDB()
@@ -68,16 +69,17 @@ if (process.env.NODE_ENV !== "production") app.use(morgan("dev"));
 // Vercel filesystem is read-only so we never write files to disk.
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-app.use("/api/auth",         authRoutes);
-app.use("/api/customers",    customerRoutes);
-app.use("/api/folders",      folderRoutes);
-app.use("/api/orders",       orderRoutes);
-app.use("/api/diamonds",     diamondShapeRoutes);
-app.use("/api/gold-entries", goldEntryRoutes);
+app.use("/api/auth",            authRoutes);
+app.use("/api/customers",       customerRoutes);
+app.use("/api/folders",         folderRoutes);
+app.use("/api/orders",          orderRoutes);
+app.use("/api/diamonds",        diamondShapeRoutes);
+app.use("/api/diamond-folders", diamondFolderRoutes);
+app.use("/api/gold-entries",    goldEntryRoutes);
 
-// Health check — shows DB status
+// Health check
 app.get("/api/health", (_req, res) => {
-  const mongoose   = require("mongoose");
+  const mongoose    = require("mongoose");
   const dbConnected = mongoose.connection.readyState === 1;
   res.json({
     success: true,
