@@ -13,6 +13,7 @@ const diamondFolderRoutes = require("./src/routes/diamondFolderRoutes");
 const goldEntryRoutes     = require("./src/routes/goldEntryRoutes");
 const errorHandler        = require("./src/middleware/errorHandler");
 
+// ── Connect DB ────────────────────────────────────────────────────────────────
 connectDB()
   .then(async (conn) => {
     if (!conn) { console.warn("⚠️  Continuing without database..."); return; }
@@ -32,12 +33,15 @@ connectDB()
 
 const app = express();
 
-// ── CORS config ───────────────────────────────────────────────────────────────
-const allowedOrigins = [process.env.CLIENT_URL, "http://localhost:3000"].filter(Boolean);
+// ── CORS ──────────────────────────────────────────────────────────────────────
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  "http://localhost:3000",
+].filter(Boolean);
 
 const corsOptions = {
   origin: (origin, cb) => {
-    if (!origin) return cb(null, true);           // Postman / server-to-server
+    if (!origin) return cb(null, true);
     if (allowedOrigins.includes(origin)) return cb(null, true);
     cb(new Error(`CORS blocked: ${origin}`));
   },
@@ -46,7 +50,7 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 
-// ── Handle OPTIONS preflight for ALL routes (fixes 405 on Vercel) ─────────────
+// ── This line fixes 405 on Vercel — handles OPTIONS preflight ─────────────────
 app.options("*", cors(corsOptions));
 app.use(cors(corsOptions));
 
@@ -68,20 +72,25 @@ app.use("/api/gold-entries",    goldEntryRoutes);
 app.get("/api/health", (_req, res) => {
   const mongoose    = require("mongoose");
   const dbConnected = mongoose.connection.readyState === 1;
-  res.json({ success: true, message: "AtelierGold API ✦", database: dbConnected ? "connected" : "disconnected" });
+  res.json({
+    success:  true,
+    message:  "AtelierGold API ✦",
+    database: dbConnected ? "connected" : "disconnected",
+  });
 });
 
-// 404 + error handler
+// 404
 app.use((_req, res) => res.status(404).json({ success: false, error: "Route not found" }));
 app.use(errorHandler);
 
-// ── Export for Vercel serverless ──────────────────────────────────────────────
+// ── IMPORTANT: Export for Vercel serverless ───────────────────────────────────
 module.exports = app;
 
-// ── Local dev server ──────────────────────────────────────────────────────────
+// ── Local dev only ────────────────────────────────────────────────────────────
 if (!process.env.VERCEL) {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => {
-    console.log(`\n✦  AtelierGold API v3  🚀 http://localhost:${PORT}\n`);
+    console.log(`\n✦  AtelierGold API v3`);
+    console.log(`🚀 http://localhost:${PORT}\n`);
   });
 }
