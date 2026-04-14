@@ -5,12 +5,17 @@ const customerSchema = new mongoose.Schema(
     name:          { type: String, required: [true, "Name is required"], trim: true },
     company:       { type: String, trim: true, default: "" },
     phone:         { type: String, required: [true, "Phone is required"], trim: true },
+
+    // ── Metals ────────────────────────────────────────────────────────────────
     gold:          { type: Number, default: 0, min: 0 },
     goldCarats:    { type: Number, default: 0, min: 0 },
+    silver:        { type: Number, default: 0, min: 0 }, // ← NEW
+
+    // ── Diamonds ──────────────────────────────────────────────────────────────
     diamonds:      { type: Number, default: 0, min: 0 },
     diamondKarats: { type: Number, default: 0, min: 0 },
 
-    // ── Owner flag: true only for Lariot Jweles (manufacturer) ───────────────
+    // ── Owner flag ────────────────────────────────────────────────────────────
     isOwner: { type: Boolean, default: false },
   },
   { timestamps: true }

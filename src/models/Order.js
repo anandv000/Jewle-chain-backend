@@ -6,15 +6,12 @@ const STEPS = [
 ];
 
 const diamondSelectionSchema = new mongoose.Schema({
-  shapeId:   String,
-  shapeName: String,
-  sizeInMM:  String,
-  weight:    Number,
-  pcs:       { type: Number, default: 1 },
+  shapeId:   String, shapeName: String, sizeInMM: String,
+  weight:    Number, pcs: { type: Number, default: 1 },
 }, { _id: false });
 
 const accessorySchema = new mongoose.Schema({
-  name:   String,
+  name: String,
   issue1: { type: String, default: "" }, issue2: { type: String, default: "" }, issue3: { type: String, default: "" },
   rec1:   { type: String, default: "" }, rec2:   { type: String, default: "" }, rec3:   { type: String, default: "" },
 }, { _id: false });
@@ -36,7 +33,7 @@ const billingDataSchema = new mongoose.Schema({
 
 const orderSchema = new mongoose.Schema(
   {
-    bagId:       { type: String, unique: true },
+    bagId:        { type: String, unique: true },
     customer:     { type: mongoose.Schema.Types.ObjectId, ref: "Customer", required: true },
     customerName: { type: String, trim: true },
 
@@ -58,21 +55,23 @@ const orderSchema = new mongoose.Schema(
     // ── Workflow ───────────────────────────────────────────────────────────────
     status:      { type: String, enum: ["In Progress", "Completed"], default: "In Progress" },
     currentStep: { type: Number, default: 0, min: 0, max: STEPS.length },
+    gramHistory: { type: [Number], default: [] }, // tracks whichever metal is being used
 
-    // gramHistory starts EMPTY — first value added at Casting step
-    // gramHistory[0] = castingGold, gramHistory[1] = remaining after Filing, etc.
-    gramHistory: { type: [Number], default: [] },
-
-    // ── Step 0 sub-steps (Design & Wax) ──────────────────────────────────────
+    // ── Step 0 sub-steps ──────────────────────────────────────────────────────
     designDone: { type: Boolean, default: false },
     waxDone:    { type: Boolean, default: false },
 
-    // ── Casting step ──────────────────────────────────────────────────────────
-    castingGold: { type: Number, default: 0 }, // grams allocated at casting
+    // ── Metal type — which metal this bag uses ────────────────────────────────
+    metalType:  { type: String, enum: ["gold", "silver"], default: "gold" }, // ← NEW
 
-    // ── Owner gold usage ──────────────────────────────────────────────────────
-    usesOwnerGold: { type: Boolean, default: false }, // true if customer had 0 gold
-    ownerId:       { type: mongoose.Schema.Types.ObjectId, ref: "Customer", default: null },
+    // ── Casting (gold) ────────────────────────────────────────────────────────
+    castingGold:    { type: Number, default: 0 },
+    usesOwnerGold:  { type: Boolean, default: false },
+    ownerId:        { type: mongoose.Schema.Types.ObjectId, ref: "Customer", default: null },
+
+    // ── Casting (silver) ──────────────────────────────────────────────────────
+    castingSilver:    { type: Number, default: 0 },        // ← NEW
+    usesOwnerSilver:  { type: Boolean, default: false },   // ← NEW
 
     // ── Billing PDF ───────────────────────────────────────────────────────────
     billingData: { type: billingDataSchema, default: null },
