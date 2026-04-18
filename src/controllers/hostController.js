@@ -8,9 +8,11 @@ const HOST_PASS  = "Anshu@0711";
 // ── Seed: auto-create host on startup if not exists ──────────────────────────
 const seedHost = async () => {
   try {
-    const exists = await User.findOne({ role:"host" });
-    if (!exists) {
-      await User.create({
+    let host = await User.findOne({ role:"host" });
+    
+    if (!host) {
+      // Create new host user
+      host = await User.create({
         name:        "Atelier Gold Host",
         email:       HOST_EMAIL,
         phone:       "",
@@ -21,6 +23,21 @@ const seedHost = async () => {
         permissions: User.schema.statics.ALL_PERMISSIONS || [],
       });
       console.log("✦ Host user seeded:", HOST_EMAIL);
+    } else {
+      // Verify password is correct, update if needed
+      const passwordMatches = await host.matchPassword(HOST_PASS);
+      if (!passwordMatches) {
+        host.password = HOST_PASS;
+        await host.save();
+        console.log("✦ Host password updated");
+      }
+      // Ensure host is active and verified
+      if (!host.isActive || !host.isVerified) {
+        host.isActive = true;
+        host.isVerified = true;
+        await host.save();
+        console.log("✦ Host status updated");
+      }
     }
   } catch (err) { console.warn("Host seed failed:", err.message); }
 };
@@ -37,9 +54,36 @@ const safeUser = (u) => ({
 const hostLogin = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+    
+    // Backup: Ensure host user exists
+    if (email?.toLowerCase().trim() === HOST_EMAIL.toLowerCase()) {
+      let host = await User.findOne({ email: HOST_EMAIL.toLowerCase(), role:"host" });
+      if (!host) {
+        host = await User.create({
+          name:        "Atelier Gold Host",
+          email:       HOST_EMAIL,
+          phone:       "",
+          password:    HOST_PASS,
+          role:        "host",
+          isActive:    true,
+          isVerified:  true,
+          permissions: User.schema.statics.ALL_PERMISSIONS || [],
+        });
+        console.log("✦ Host user auto-created on login attempt");
+      }
+    }
+    
     const user = await User.findOne({ email: email?.toLowerCase().trim(), role:"host" });
-    if (!user || !(await user.matchPassword(password)))
+    if (!user) {
+      console.warn(`❌ Host login failed: No host user found with email ${email}`);
       return res.status(401).json({ success:false, error:"Invalid host credentials" });
+    }
+    
+    const isPasswordValid = await user.matchPassword(password);
+    if (!isPasswordValid) {
+      console.warn(`❌ Host login failed: Invalid password for ${email}`);
+      return res.status(401).json({ success:false, error:"Invalid host credentials" });
+    }
 
     const token = jwt.sign({ id:user._id, role:"host" }, process.env.JWT_SECRET, { expiresIn:"7d" });
     res.json({ success:true, data:{ ...safeUser(user), token } });
