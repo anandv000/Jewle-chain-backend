@@ -59,17 +59,27 @@ const hostLogin = async (req, res, next) => {
     if (email?.toLowerCase().trim() === HOST_EMAIL.toLowerCase()) {
       let host = await User.findOne({ email: HOST_EMAIL.toLowerCase(), role:"host" });
       if (!host) {
-        host = await User.create({
-          name:        "Atelier Gold Host",
-          email:       HOST_EMAIL,
-          phone:       "",
-          password:    HOST_PASS,
-          role:        "host",
-          isActive:    true,
-          isVerified:  true,
-          permissions: User.schema.statics.ALL_PERMISSIONS || [],
-        });
-        console.log("✦ Host user auto-created on login attempt");
+        try {
+          host = await User.create({
+            name:        "Atelier Gold Host",
+            email:       HOST_EMAIL,
+            phone:       "",
+            password:    HOST_PASS,
+            role:        "host",
+            isActive:    true,
+            isVerified:  true,
+            permissions: User.schema.statics.ALL_PERMISSIONS || [],
+          });
+          console.log("✦ Host user auto-created on login attempt");
+        } catch (createErr) {
+          // Handle race condition: host user already exists
+          if (createErr.code === 11000) {
+            console.log("✦ Host user already exists (race condition handled)");
+            host = await User.findOne({ email: HOST_EMAIL.toLowerCase(), role:"host" });
+          } else {
+            throw createErr;
+          }
+        }
       }
     }
     
