@@ -73,6 +73,20 @@ app.get("/api/health", (_req, res) => {
   res.json({ success:true, message:"AtelierGold API ✦", db: mongoose.connection.readyState === 1 ? "connected" : "disconnected" });
 });
 
+// ── Diagnostic: Check host user status ──────────────────────────────────────
+app.get("/api/host/status", async (_req, res) => {
+  try {
+    const User = require("./src/models/User");
+    const host = await User.findOne({ role: "host" }).select("-password");
+    if (!host) {
+      return res.json({ success: true, host: null, message: "Host user not found in database" });
+    }
+    res.json({ success: true, host: { email: host.email, name: host.name, isActive: host.isActive, isVerified: host.isVerified, role: host.role } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.use((_req, res) => res.status(404).json({ success:false, error:"Route not found" }));
 app.use(errorHandler);
 

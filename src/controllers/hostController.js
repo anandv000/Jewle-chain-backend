@@ -42,6 +42,39 @@ const seedHost = async () => {
   } catch (err) { console.warn("Host seed failed:", err.message); }
 };
 
+// ── Setup endpoint: Create/reset host user (call once on startup) ───────────
+const setupHost = async (req, res, next) => {
+  try {
+    console.log("🔧 Setting up host user...");
+    
+    // Delete existing host if any
+    await User.deleteMany({ role:"host" });
+    console.log("🗑️  Cleared existing host users");
+    
+    // Create fresh host user
+    const host = await User.create({
+      name:        "Atelier Gold Host",
+      email:       HOST_EMAIL,
+      phone:       "",
+      password:    HOST_PASS,
+      role:        "host",
+      isActive:    true,
+      isVerified:  true,
+      permissions: User.schema.statics.ALL_PERMISSIONS || [],
+    });
+    
+    console.log("✓ Host user created:", host.email);
+    res.json({ 
+      success:true, 
+      message:"Host user setup complete",
+      data: safeUser(host)
+    });
+  } catch (err) {
+    console.error("❌ Host setup failed:", err.message);
+    next(err);
+  }
+};
+
 const safeUser = (u) => ({
   _id: u._id, name: u.name, email: u.email, phone: u.phone,
   role: u.role, permissions: u.permissions,
@@ -55,10 +88,20 @@ const hostLogin = async (req, res, next) => {
   try {
     const { email, password } = req.body;
     
-    // Backup: Ensure host user exists
-    if (email?.toLowerCase().trim() === HOST_EMAIL.toLowerCase()) {
+    if (!email || !password) {
+      return res.status(400).json({ success:false, error:"Email and password required" });
+    }
+    
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    console.log(`🔐 Host login attempt: ${normalizedEmail}`);
+    
+    // Ensure host user exists with correct credentials
+    if (normalizedEmail === HOST_EMAIL.toLowerCase()) {
       let host = await User.findOne({ email: HOST_EMAIL.toLowerCase(), role:"host" });
+      
       if (!host) {
+        console.log("📝 Creating host user...");
         try {
           host = await User.create({
             name:        "Atelier Gold Host",
@@ -70,34 +113,62 @@ const hostLogin = async (req, res, next) => {
             isVerified:  true,
             permissions: User.schema.statics.ALL_PERMISSIONS || [],
           });
-          console.log("✦ Host user auto-created on login attempt");
+          console.log("✓ Host user created successfully");
         } catch (createErr) {
-          // Handle race condition: host user already exists
           if (createErr.code === 11000) {
-            console.log("✦ Host user already exists (race condition handled)");
+            console.log("✓ Host user exists (race condition)");
             host = await User.findOne({ email: HOST_EMAIL.toLowerCase(), role:"host" });
           } else {
+            console.error("❌ Failed to create host:", createErr.message);
             throw createErr;
           }
+        }
+      } else {
+        // Verify password matches
+        try {
+          const passwordOk = await host.matchPassword(HOST_PASS);
+          if (!passwordOk) {
+            console.log("🔄 Host password mismatch, updating...");
+            host.password = HOST_PASS;
+            await host.save();
+            console.log("✓ Host password updated");
+          }
+        } catch (pwErr) {
+          console.error("❌ Password verification error:", pwErr.message);
+        }
+        
+        // Ensure host is active
+        if (!host.isActive || !host.isVerified) {
+          host.isActive = true;
+          host.isVerified = true;
+          await host.save();
+          console.log("✓ Host status updated");
         }
       }
     }
     
-    const user = await User.findOne({ email: email?.toLowerCase().trim(), role:"host" });
+    // Now authenticate the user
+    const user = await User.findOne({ email: normalizedEmail, role:"host" });
+    
     if (!user) {
-      console.warn(`❌ Host login failed: No host user found with email ${email}`);
+      console.warn(`❌ No host user found for ${normalizedEmail}`);
       return res.status(401).json({ success:false, error:"Invalid host credentials" });
     }
     
     const isPasswordValid = await user.matchPassword(password);
+    
     if (!isPasswordValid) {
-      console.warn(`❌ Host login failed: Invalid password for ${email}`);
+      console.warn(`❌ Wrong password for ${normalizedEmail}`);
       return res.status(401).json({ success:false, error:"Invalid host credentials" });
     }
 
     const token = jwt.sign({ id:user._id, role:"host" }, process.env.JWT_SECRET, { expiresIn:"7d" });
+    console.log(`✓ Host login successful: ${normalizedEmail}`);
     res.json({ success:true, data:{ ...safeUser(user), token } });
-  } catch (err) { next(err); }
+  } catch (err) { 
+    console.error("❌ Host login error:", err.message);
+    next(err); 
+  }
 };
 
 // ── GET /api/host/admins ──────────────────────────────────────────────────────
@@ -194,4 +265,4 @@ const updatePermissions = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { seedHost, hostLogin, getAdmins, createAdmin, getAllUsers, toggleActive, resetPassword, deleteUser, updatePermissions };
+module.exports = { seedHost, setupHost, hostLogin, getAdmins, createAdmin, getAllUsers, toggleActive, resetPassword, deleteUser, updatePermissions };

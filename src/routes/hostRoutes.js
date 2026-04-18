@@ -1,10 +1,13 @@
 const express = require("express");
 const router  = express.Router();
 const {
-  hostLogin, getAdmins, createAdmin, getAllUsers,
+  hostLogin, setupHost, getAdmins, createAdmin, getAllUsers,
   toggleActive, resetPassword, deleteUser, updatePermissions,
 } = require("../controllers/hostController");
 const { protect, requireRole } = require("../middleware/auth");
+
+// Public: host setup (DEVELOPMENT ONLY - remove in production)
+router.get("/setup", setupHost);
 
 // Public: host login (separate from regular login)
 router.post("/login", hostLogin);
