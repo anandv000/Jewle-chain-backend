@@ -17,7 +17,7 @@ const goldEntryRoutes     = require("./src/routes/goldEntryRoutes");
 const goldRecoveryRoutes  = require("./src/routes/goldRecoveryRoutes");
 const errorHandler        = require("./src/middleware/errorHandler");
 
-// ── Connect DB + seed host ────────────────────────────────────────────────────
+// ── Connect DB + seed host on startup ─────────────────────────────────────────
 connectDB()
   .then(async (conn) => {
     if (!conn) { console.warn("⚠️  Continuing without database..."); return; }
@@ -44,13 +44,14 @@ const allowedOrigins = [
   "http://localhost:3000",
   "https://jewle-chain-frontend.vercel.app",
 ].filter(Boolean);
+
 const corsOptions = {
   origin: (origin, cb) => {
     if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
     cb(new Error(`CORS blocked: ${origin}`));
   },
   credentials: true,
-  methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
+  methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS","HEAD"],
   allowedHeaders: ["Content-Type","Authorization"],
 };
 app.options("*", cors(corsOptions));
@@ -59,6 +60,39 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit:"15mb" }));
 app.use(express.urlencoded({ extended:true, limit:"15mb" }));
 if (process.env.NODE_ENV !== "production") app.use(morgan("dev"));
+
+// ── Health check ──────────────────────────────────────────────────────────────
+app.get("/api/health", (_req, res) => {
+  const mongoose = require("mongoose");
+  res.json({
+    success: true,
+    message: "AtelierGold API ✦",
+    db: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+  });
+});
+
+// ── Diagnostic: host status (registered BEFORE hostRoutes) ───────────────────
+app.get("/api/host/status", async (_req, res) => {
+  try {
+    const User = require("./src/models/User");
+    const host = await User.findOne({ email: "anandkautilyam@gmail.com" }).select("-password");
+    if (!host) {
+      return res.json({ success: true, host: null, message: "Host user not found in database" });
+    }
+    res.json({
+      success: true,
+      host: {
+        email:      host.email,
+        name:       host.name,
+        role:       host.role,
+        isActive:   host.isActive,
+        isVerified: host.isVerified,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use("/api/auth",            authRoutes);
@@ -72,26 +106,7 @@ app.use("/api/diamond-folders", diamondFolderRoutes);
 app.use("/api/gold-entries",    goldEntryRoutes);
 app.use("/api/gold-recovery",   goldRecoveryRoutes);
 
-app.get("/api/health", (_req, res) => {
-  const mongoose = require("mongoose");
-  res.json({ success:true, message:"AtelierGold API ✦", db: mongoose.connection.readyState === 1 ? "connected" : "disconnected" });
-});
-
-// ── Diagnostic: Check host user status ──────────────────────────────────────
-app.get("/api/host/status", async (_req, res) => {
-  try {
-    const User = require("./src/models/User");
-    const host = await User.findOne({ role: "host" }).select("-password");
-    if (!host) {
-      return res.json({ success: true, host: null, message: "Host user not found in database" });
-    }
-    res.json({ success: true, host: { email: host.email, name: host.name, isActive: host.isActive, isVerified: host.isVerified, role: host.role } });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.use((_req, res) => res.status(404).json({ success:false, error:"Route not found" }));
+app.use((_req, res) => res.status(404).json({ success: false, error: "Route not found" }));
 app.use(errorHandler);
 
 module.exports = app;
