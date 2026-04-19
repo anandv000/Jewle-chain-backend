@@ -39,7 +39,11 @@ connectDB()
 const app = express();
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
-const allowedOrigins = [process.env.CLIENT_URL, "http://localhost:3000"].filter(Boolean);
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  "http://localhost:3000",
+  "https://jewle-chain-frontend.vercel.app",
+].filter(Boolean);
 const corsOptions = {
   origin: (origin, cb) => {
     if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
