@@ -158,7 +158,7 @@ const hostLogin = async (req, res, next) => {
 
     // ── Step 4: Issue token ────────────────────────────────────────────────
     const token = jwt.sign(
-      { id: user._id, role: "host" },
+      { id: user._id, role: "host", email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
