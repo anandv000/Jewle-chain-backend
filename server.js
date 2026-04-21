@@ -15,6 +15,7 @@ const diamondShapeRoutes  = require("./src/routes/diamondShapeRoutes");
 const diamondFolderRoutes = require("./src/routes/diamondFolderRoutes");
 const goldEntryRoutes     = require("./src/routes/goldEntryRoutes");
 const goldRecoveryRoutes  = require("./src/routes/goldRecoveryRoutes");
+const invoiceRoutes       = require("./src/routes/invoiceRoutes");
 const errorHandler        = require("./src/middleware/errorHandler");
 
 // ── Connect DB + seed host on startup ─────────────────────────────────────────
@@ -105,6 +106,7 @@ app.use("/api/diamonds",        diamondShapeRoutes);
 app.use("/api/diamond-folders", diamondFolderRoutes);
 app.use("/api/gold-entries",    goldEntryRoutes);
 app.use("/api/gold-recovery",   goldRecoveryRoutes);
+app.use("/api/invoices",        invoiceRoutes);
 
 app.use((_req, res) => res.status(404).json({ success: false, error: "Route not found" }));
 app.use(errorHandler);
