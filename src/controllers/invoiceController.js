@@ -78,6 +78,9 @@ const karatToPercent = (karat) => {
 
 // ── Enrich item with fine wt + lineTotal ──────────────────────────────────────
 const enrichItem = (item) => {
+  // ── Sanitize: empty string orderId must be null — MongoDB can't cast "" to ObjectId
+  const orderId = (item.orderId && item.orderId !== "") ? item.orderId : null;
+
   const fp     = item.finePercent || karatToPercent(item.karat) || 0;
   const fineWt = parseFloat(((item.netWt || 0) * fp / 100).toFixed(3));
 
@@ -88,6 +91,7 @@ const enrichItem = (item) => {
 
   return {
     ...item,
+    orderId,                              // null-safe
     finePercent: fp,
     fineWt,
     lineTotal: parseFloat(lineTotal.toFixed(2)),
