@@ -52,7 +52,7 @@ const createOrder = async (req, res, next) => {
   try {
     const {
       customerId, folder, item, itemNumber, itemWeight, itemImage,
-      diamondShapes, labourCharge, size, notes, deliveryDate,
+      diamondShapes, size, notes, deliveryDate,
       metalType = "gold",  // ← NEW: "gold" or "silver"
     } = req.body;
 
@@ -67,7 +67,10 @@ const createOrder = async (req, res, next) => {
 
     const bagId  = await generateBagId();
     const weight = parseFloat(itemWeight) || 0;
-    const labour = parseFloat(labourCharge) || 0;
+    // Auto-calculate labour from customer stored rate
+    const labour = metalType === "silver"
+      ? (parseFloat(customer.labourRateSilver) || 0)
+      : (parseFloat(customer.labourRateGold)   || 0);
     const lTotal = parseFloat((weight * labour).toFixed(2));
     const dDate  = deliveryDate
       ? new Date(deliveryDate)

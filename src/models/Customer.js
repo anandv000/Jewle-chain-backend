@@ -2,14 +2,18 @@ const mongoose = require("mongoose");
 
 const customerSchema = new mongoose.Schema(
   {
-    name:          { type: String, required: [true, "Name is required"], trim: true },
-    company:       { type: String, trim: true, default: "" },
-    phone:         { type: String, required: [true, "Phone is required"], trim: true },
+    name:    { type: String, required: [true, "Name is required"], trim: true },
+    company: { type: String, trim: true, default: "" },
+    phone:   { type: String, required: [true, "Phone is required"], trim: true },
 
     // ── Metals ────────────────────────────────────────────────────────────────
-    gold:          { type: Number, default: 0, min: 0 },
-    goldCarats:    { type: Number, default: 0, min: 0 },
-    silver:        { type: Number, default: 0, min: 0 }, // ← NEW
+    gold:       { type: Number, default: 0, min: 0 },
+    goldCarats: { type: Number, default: 0, min: 0 },
+    silver:     { type: Number, default: 0, min: 0 },
+
+    // ── Labour rates (₹ per gram) set on customer, auto-used in orders ────────
+    labourRateGold:   { type: Number, default: 0, min: 0 },
+    labourRateSilver: { type: Number, default: 0, min: 0 },
 
     // ── Diamonds ──────────────────────────────────────────────────────────────
     diamonds:      { type: Number, default: 0, min: 0 },

@@ -93,8 +93,17 @@ const getCustomerById = async (req, res, next) => {
 // ── POST /api/customers ───────────────────────────────────────────────────────
 const createCustomer = async (req, res, next) => {
   try {
-    const { name, company, phone, gold, goldCarats, diamonds } = req.body;
-    const customer = await Customer.create({ name, company, phone, gold: parseFloat(gold)||0, goldCarats: parseFloat(goldCarats)||0, diamonds: parseInt(diamonds)||0 });
+    const { name, company, phone, gold, goldCarats, silver, diamonds, diamondKarats, labourRateGold, labourRateSilver } = req.body;
+    const customer = await Customer.create({
+      name, company, phone,
+      gold:             parseFloat(gold)             || 0,
+      goldCarats:       parseFloat(goldCarats)        || 0,
+      silver:           parseFloat(silver)            || 0,
+      diamonds:         parseInt(diamonds)            || 0,
+      diamondKarats:    parseFloat(diamondKarats)     || 0,
+      labourRateGold:   parseFloat(labourRateGold)    || 0,
+      labourRateSilver: parseFloat(labourRateSilver)  || 0,
+    });
 
     // Auto first entry + PDF when gold > 0
     let firstEntry = null;
@@ -107,10 +116,19 @@ const createCustomer = async (req, res, next) => {
 // ── PUT /api/customers/:id ────────────────────────────────────────────────────
 const updateCustomer = async (req, res, next) => {
   try {
-    const { name, company, phone, gold, goldCarats, diamonds } = req.body;
+    const { name, company, phone, gold, goldCarats, silver, diamonds, diamondKarats, labourRateGold, labourRateSilver } = req.body;
     const c = await Customer.findByIdAndUpdate(
       req.params.id,
-      { name, company, phone, gold: parseFloat(gold)||0, goldCarats: parseFloat(goldCarats)||0, diamonds: parseInt(diamonds)||0 },
+      {
+        name, company, phone,
+        gold:             parseFloat(gold)             || 0,
+        goldCarats:       parseFloat(goldCarats)        || 0,
+        silver:           parseFloat(silver)            || 0,
+        diamonds:         parseInt(diamonds)            || 0,
+        diamondKarats:    parseFloat(diamondKarats)     || 0,
+        labourRateGold:   parseFloat(labourRateGold)    || 0,
+        labourRateSilver: parseFloat(labourRateSilver)  || 0,
+      },
       { new: true, runValidators: true }
     );
     if (!c) return res.status(404).json({ success: false, error: "Customer not found" });
